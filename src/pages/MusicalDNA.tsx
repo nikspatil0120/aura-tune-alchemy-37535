@@ -1,8 +1,12 @@
 import { Card } from "@/components/ui/card";
+import { Brain } from "lucide-react";
 import { archetypes } from "@/data/mockData";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import { useUser } from "@/contexts/UserContext";
 
 const MusicalDNA = () => {
+  const { user, isLoggedIn } = useUser();
+  
   const audioFeatures = [
     { feature: "Valence", value: 65, fullMark: 100 },
     { feature: "Energy", value: 70, fullMark: 100 },
@@ -25,12 +29,16 @@ const MusicalDNA = () => {
   return (
     <div className="min-h-screen py-24 px-4">
       <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-12 animate-slide-up">
+        <div className="text-center mb-12">
+          <Brain className="w-16 h-16 mx-auto mb-4 text-primary" />
           <h1 className="text-4xl md:text-5xl font-heading font-bold mb-4">
-            Your Musical <span className="bg-gradient-happy bg-clip-text text-transparent">DNA</span>
+            {isLoggedIn && user ? `${user.name}'s Musical DNA` : "Your Musical DNA"}
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Discover the unique audio fingerprint that defines you
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            {isLoggedIn 
+              ? "A deep dive into your unique audio fingerprint based on your listening history"
+              : "A deep dive into the unique audio fingerprint that defines your listening personality"
+            }
           </p>
         </div>
 

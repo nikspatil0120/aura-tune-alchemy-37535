@@ -3,6 +3,7 @@ export interface Song {
   title: string;
   artist: string;
   albumArt: string;
+  trackUrl: string;
   valence: number; // 0-1 (sad to happy)
   energy: number; // 0-1
   tempo: number; // BPM
@@ -11,12 +12,20 @@ export interface Song {
   danceability: number; // 0-1
 }
 
+export interface User {
+  name: string;
+  email: string;
+  listeningHistory: Song[];
+  savedPlaylists: string[];
+}
+
 export const mockSongs: Song[] = [
   {
     id: "1",
     title: "Weightless",
     artist: "Marconi Union",
     albumArt: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track1.mp3",
     valence: 0.3,
     energy: 0.2,
     tempo: 60,
@@ -29,6 +38,7 @@ export const mockSongs: Song[] = [
     title: "Clair de Lune",
     artist: "Claude Debussy",
     albumArt: "https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track2.mp3",
     valence: 0.4,
     energy: 0.3,
     tempo: 65,
@@ -41,6 +51,7 @@ export const mockSongs: Song[] = [
     title: "Breathe",
     artist: "Télépopmusik",
     albumArt: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track3.mp3",
     valence: 0.5,
     energy: 0.4,
     tempo: 90,
@@ -53,6 +64,7 @@ export const mockSongs: Song[] = [
     title: "Sunset Lover",
     artist: "Petit Biscuit",
     albumArt: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track4.mp3",
     valence: 0.65,
     energy: 0.55,
     tempo: 100,
@@ -65,6 +77,7 @@ export const mockSongs: Song[] = [
     title: "Electric Feel",
     artist: "MGMT",
     albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track5.mp3",
     valence: 0.75,
     energy: 0.7,
     tempo: 115,
@@ -77,6 +90,7 @@ export const mockSongs: Song[] = [
     title: "Levitating",
     artist: "Dua Lipa",
     albumArt: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=400&fit=crop",
+    trackUrl: "https://example.com/track6.mp3",
     valence: 0.85,
     energy: 0.85,
     tempo: 130,
@@ -85,6 +99,13 @@ export const mockSongs: Song[] = [
     danceability: 0.9,
   },
 ];
+
+export const mockUser: User = {
+  name: "Alex",
+  email: "alex@auratune.com",
+  listeningHistory: mockSongs.slice(0, 4),
+  savedPlaylists: [],
+};
 
 export const emotions = [
   { id: "anxious", label: "Anxious", mood: "sad" },

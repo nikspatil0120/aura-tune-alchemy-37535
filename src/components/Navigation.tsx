@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music2, Sparkles, Brain, TrendingUp } from "lucide-react";
+import { Music2, Brain, TrendingUp, User, LogIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@/contexts/UserContext";
 
 const Navigation = () => {
   const location = useLocation();
+  const { isLoggedIn, login, logout, user } = useUser();
   
   const navItems = [
     { path: "/", label: "Home", icon: Music2 },
-    { path: "/generator", label: "Generator", icon: Sparkles },
     { path: "/dna", label: "Musical DNA", icon: Brain },
     { path: "/insights", label: "Insights", icon: TrendingUp },
   ];
@@ -20,7 +22,7 @@ const Navigation = () => {
             AuraTune
           </Link>
           
-          <div className="flex items-center gap-2 md:gap-6">
+          <div className="flex items-center gap-2 md:gap-4">
             {navItems.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
@@ -35,6 +37,26 @@ const Navigation = () => {
                 <span className="hidden md:inline">{label}</span>
               </Link>
             ))}
+            
+            {isLoggedIn ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                className="rounded-full hover:bg-primary/20 transition-all duration-300"
+                title={`Logged in as ${user?.name}`}
+              >
+                <User className="w-5 h-5 text-primary" />
+              </Button>
+            ) : (
+              <Button
+                onClick={login}
+                className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50 transition-all duration-300"
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Login</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>

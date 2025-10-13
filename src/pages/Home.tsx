@@ -1,11 +1,23 @@
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Music, Sparkles, Brain, TrendingUp, ArrowRight, Heart, Zap } from "lucide-react";
+import { Music, Brain, TrendingUp, Heart, Zap } from "lucide-react";
 import heroImage from "@/assets/hero-aurora.jpg";
+import ChatInterface from "@/components/ChatInterface";
+import PlaylistView from "@/components/PlaylistView";
+import MusicPlayer from "@/components/MusicPlayer";
+import { Song } from "@/data/mockData";
 
 const Home = () => {
-  const navigate = useNavigate();
+  const [generatedPlaylist, setGeneratedPlaylist] = useState<Song[]>([]);
+  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
+
+  const handlePlaylistGenerated = (playlist: Song[]) => {
+    setGeneratedPlaylist(playlist);
+  };
+
+  const handlePlayAll = () => {
+    setIsPlayerVisible(true);
+  };
 
   const features = [
     {
@@ -29,9 +41,9 @@ const Home = () => {
   ];
 
   const steps = [
-    { icon: Heart, title: "Select Your Mood", description: "Tell us how you're feeling right now" },
-    { icon: Sparkles, title: "Set Your Goal", description: "Choose where you want to be emotionally" },
-    { icon: Zap, title: "Receive Your Sonic Cure", description: "Get a personalized playlist journey" },
+    { icon: Heart, title: "Share Your Mood", description: "Tell Aura how you're feeling" },
+    { icon: Zap, title: "Set Your Goal", description: "Choose your desired emotional state" },
+    { icon: Music, title: "Receive Your Playlist", description: "Get a personalized therapeutic journey" },
   ];
 
   return (
@@ -52,25 +64,21 @@ const Home = () => {
             Tune Your <span className="bg-gradient-calm bg-clip-text text-transparent">Aura</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
             AI-crafted playlists that understand how you feel, and how you want to feel.
           </p>
-          
-          <Button
-            size="lg"
-            onClick={() => navigate("/generator")}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-calm hover:shadow-glow-calm hover:scale-105 transition-all duration-300 text-lg px-8 py-6 rounded-2xl group animate-slide-up"
-            style={{ animationDelay: "0.2s" }}
-          >
-            Begin Your Journey
-            <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-          </Button>
         </div>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-float">
-          <div className="w-8 h-12 rounded-full border-2 border-primary/50 flex items-start justify-center p-2">
-            <div className="w-1.5 h-3 bg-primary rounded-full animate-pulse-glow"></div>
-          </div>
+      </section>
+
+      {/* Chat Interface Section */}
+      <section className="py-24 px-4">
+        <div className="container mx-auto">
+          <ChatInterface onPlaylistGenerated={handlePlaylistGenerated} />
+          
+          {generatedPlaylist.length > 0 && (
+            <PlaylistView playlist={generatedPlaylist} onPlay={handlePlayAll} />
+          )}
         </div>
       </section>
 
@@ -118,6 +126,11 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Music Player */}
+      {isPlayerVisible && generatedPlaylist.length > 0 && (
+        <MusicPlayer playlist={generatedPlaylist} />
+      )}
     </div>
   );
 };
