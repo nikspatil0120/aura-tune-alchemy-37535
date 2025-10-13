@@ -1,23 +1,10 @@
-import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Music, Brain, TrendingUp, Heart, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-aurora.jpg";
-import ChatInterface from "@/components/ChatInterface";
-import PlaylistView from "@/components/PlaylistView";
-import MusicPlayer from "@/components/MusicPlayer";
-import { Song } from "@/data/mockData";
 
 const Home = () => {
-  const [generatedPlaylist, setGeneratedPlaylist] = useState<Song[]>([]);
-  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
-
-  const handlePlaylistGenerated = (playlist: Song[]) => {
-    setGeneratedPlaylist(playlist);
-  };
-
-  const handlePlayAll = () => {
-    setIsPlayerVisible(true);
-  };
 
   const features = [
     {
@@ -67,19 +54,19 @@ const Home = () => {
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
             AI-crafted playlists that understand how you feel, and how you want to feel.
           </p>
-        </div>
-
-      </section>
-
-      {/* Chat Interface Section */}
-      <section className="py-24 px-4">
-        <div className="container mx-auto">
-          <ChatInterface onPlaylistGenerated={handlePlaylistGenerated} />
           
-          {generatedPlaylist.length > 0 && (
-            <PlaylistView playlist={generatedPlaylist} onPlay={handlePlayAll} />
-          )}
+          <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
+            <Link to="/generator">
+              <Button
+                size="lg"
+                className="bg-gradient-happy hover:opacity-90 text-white font-semibold px-8 py-6 text-lg rounded-xl shadow-glow-happy hover:scale-105 transition-all duration-300"
+              >
+                Begin Your Journey
+              </Button>
+            </Link>
+          </div>
         </div>
+
       </section>
 
       {/* How It Works */}
@@ -126,11 +113,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-
-      {/* Music Player */}
-      {isPlayerVisible && generatedPlaylist.length > 0 && (
-        <MusicPlayer playlist={generatedPlaylist} />
-      )}
     </div>
   );
 };

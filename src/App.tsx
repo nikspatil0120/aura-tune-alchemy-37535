@@ -7,6 +7,7 @@ import { UserProvider } from "./contexts/UserContext";
 import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
+import Generator from "./pages/Generator";
 import MusicalDNA from "./pages/MusicalDNA";
 import Insights from "./pages/Insights";
 import NotFound from "./pages/NotFound";
@@ -24,7 +25,7 @@ const App = () => (
             <Navigation />
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/generator" element={<Navigate to="/" replace />} />
+              <Route path="/generator" element={<Generator />} />
               <Route path="/dna" element={<MusicalDNA />} />
               <Route path="/insights" element={<Insights />} />
               <Route path="*" element={<NotFound />} />
