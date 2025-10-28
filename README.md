@@ -16,24 +16,39 @@
 ## 🚀 Tech Stack
 
 ### Frontend
-- **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** + **Radix UI** for modern, accessible components
-- **React Query** for state management and API caching
-- **Recharts** for beautiful data visualizations
-- **React Router** for navigation
+- **React 18.3** + **TypeScript 5.8** + **Vite 5.4**
+- **Tailwind CSS 3.4** + **Radix UI** (Complete component library)
+- **TanStack React Query 5.8** - Server state management
+- **Recharts 2.15** - Data visualization and charts
+- **React Router 6.30** - Client-side routing
+- **React Hook Form 7.6** + **Zod 3.25** - Form handling & validation
+- **Lucide React** - Icon library
+- **Sonner** - Toast notifications
 
-### Backend  
-- **Python FastAPI** - High-performance async API
-- **Google Gemini AI** - Advanced conversational AI for therapy
+### Backend
+- **FastAPI 0.115** - Modern Python web framework
+- **Uvicorn 0.30** - ASGI server
+- **Motor 3.6** - Async MongoDB driver
+- **Pydantic 2.9** - Data validation and serialization
+- **Python-JOSE 3.3** - JWT token handling
+- **Requests 2.32** - HTTP client for external APIs
+
+### AI & Machine Learning
+- **Google Generative AI** (Gemini 2.5 Flash) - Conversational AI
+- **Scikit-learn 1.7+** - Machine learning algorithms
+- **XGBoost 2.1+** - Gradient boosting framework
+- **Pandas 2.0+** - Data manipulation and analysis
+- **NumPy 2.1** - Numerical computing
+- **Joblib 1.4** - Model serialization
+
+### External APIs
 - **Spotify Web API** - Music data and playlist management
-- **JWT Authentication** - Secure user sessions
-- **Pydantic** - Data validation and serialization
+- **Google Gemini API** - Natural language processing for therapy
 
-### AI & ML
-- **Gemini 2.5 Flash** - Natural language processing for therapeutic conversations
-- **Spotify Audio Features** - Music analysis and mood matching
-- **Frequency-based Artist Analysis** - Accurate favorite artist identification
-- **Therapeutic Playlist Algorithms** - Mood-based music curation
+### Development Tools
+- **ESLint 9.32** - Code linting
+- **PostCSS 8.5** - CSS processing
+- **Autoprefixer** - CSS vendor prefixes
 
 ## 🛠️ Installation & Setup
 
