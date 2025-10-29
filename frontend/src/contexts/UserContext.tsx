@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { mockUser, User } from "@/data/mockData";
+import { User } from "@/data/mockData";
 import { apiFetch } from "@/lib/api";
 
 interface SpotifyUser {
@@ -31,7 +31,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       const backend = (import.meta as any).env?.VITE_BACKEND_URL || "http://127.0.0.1:8000";
       const response = await apiFetch(`${backend}/user/me`);
-      
+
       if (response.ok) {
         const userData = await response.json();
         return userData;
@@ -64,16 +64,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           setUser(compatUser);
           setIsLoggedIn(true);
         } else {
-          // Fallback to mock user if API fails but token exists
-          setUser(mockUser);
-          setIsLoggedIn(true);
+          console.error('Failed to fetch user data');
+          // Clear invalid token and redirect to login
+          localStorage.removeItem('spotify_access_token');
+          setUser(null);
+          setIsLoggedIn(false);
         }
       }
     } catch (error) {
       console.error("Login failed:", error);
-      // Fallback to mock user
-      setUser(mockUser);
-      setIsLoggedIn(true);
+      // Clear invalid token and redirect to login
+      localStorage.removeItem('spotify_access_token');
+      setUser(null);
+      setIsLoggedIn(false);
     } finally {
       setIsLoading(false);
     }
@@ -94,11 +97,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    try { 
+    try {
       localStorage.removeItem("auratune_token");
       // Also clear any cookies
       document.cookie = "auratune_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    } catch {}
+    } catch { }
     setUser(null);
     setSpotifyUser(null);
     setIsLoggedIn(false);
@@ -123,14 +126,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <UserContext.Provider value={{ 
-      user, 
-      spotifyUser, 
-      isLoggedIn, 
-      isLoading, 
-      login, 
-      logout, 
-      refreshUser 
+    <UserContext.Provider value={{
+      user,
+      spotifyUser,
+      isLoggedIn,
+      isLoading,
+      login,
+      logout,
+      refreshUser
     }}>
       {children}
     </UserContext.Provider>

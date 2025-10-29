@@ -19,32 +19,12 @@ const MusicalDNA = () => {
           const data = await response.json();
           setDnaData(data);
         } else {
-          // Fallback to generated data
-          setDnaData({
-            archetype: {
-              name: "The Emotional Alchemist",
-              description: "Music is your tool for transformation. You masterfully use sound to shift between emotional states, turning challenges into catalysts for growth."
-            },
-            audio_features: [
-              { feature: "Valence", value: 65, fullMark: 100 },
-              { feature: "Energy", value: 70, fullMark: 100 },
-              { feature: "Danceability", value: 55, fullMark: 100 },
-              { feature: "Acousticness", value: 45, fullMark: 100 },
-              { feature: "Tempo", value: 75, fullMark: 100 },
-            ],
-            genres: [
-              { name: "Electronic", size: 3500, fill: "hsl(var(--primary))" },
-              { name: "Pop", size: 2800, fill: "hsl(var(--secondary))" },
-              { name: "Indie", size: 2200, fill: "hsl(var(--accent))" },
-              { name: "Alternative", size: 1800, fill: "hsl(177, 73%, 40%)" },
-              { name: "Rock", size: 1500, fill: "hsl(250, 60%, 50%)" },
-              { name: "Ambient", size: 1200, fill: "hsl(320, 80%, 45%)" },
-            ],
-            total_tracks_analyzed: 0
-          });
+          console.error('Failed to fetch musical DNA:', response.status);
+          setDnaData(null);
         }
       } catch (error) {
         console.error('Failed to fetch musical DNA:', error);
+        setDnaData(null);
       } finally {
         setLoading(false);
       }
@@ -65,7 +45,30 @@ const MusicalDNA = () => {
   }
 
   if (!dnaData) {
-    return <div>Error loading musical DNA</div>;
+    return (
+      <div className="min-h-screen py-24 px-4 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Unable to Load Musical DNA</h2>
+          <p className="text-foreground/70 mb-6">
+            We couldn't analyze your musical DNA. This might be because:
+          </p>
+          <ul className="text-left text-foreground/60 mb-6 space-y-2">
+            <li>• Your Spotify account needs to be connected</li>
+            <li>• You don't have enough listening history</li>
+            <li>• There's a temporary connection issue</li>
+          </ul>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -299,43 +302,7 @@ const MusicalDNA = () => {
           </div>
         </div>
 
-        {/* Musical Insights */}
-        <div className="glass-card neon-glow melody-wave p-8">
-          <div className="text-center mb-8">
-            <h3 className="text-3xl font-bold gradient-text mb-4 sparkle-effect">
-              🔮 Musical Insights
-            </h3>
-            <p className="text-lg text-foreground/70">
-              What your musical DNA reveals about you
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="glass-card interactive-hover p-6 text-center">
-              <Waves className="w-12 h-12 mx-auto mb-4 text-accent-cyan neon-glow" />
-              <h4 className="text-xl font-bold gradient-text mb-2">Emotional Range</h4>
-              <p className="text-foreground/70">
-                Your music spans a wide emotional spectrum, showing deep emotional intelligence
-              </p>
-            </div>
-            
-            <div className="glass-card interactive-hover p-6 text-center">
-              <TrendingUp className="w-12 h-12 mx-auto mb-4 text-accent-purple neon-glow" />
-              <h4 className="text-xl font-bold gradient-text mb-2">Growth Mindset</h4>
-              <p className="text-foreground/70">
-                You use music as a tool for personal transformation and emotional growth
-              </p>
-            </div>
-            
-            <div className="glass-card interactive-hover p-6 text-center">
-              <Heart className="w-12 h-12 mx-auto mb-4 text-accent-pink neon-glow" />
-              <h4 className="text-xl font-bold gradient-text mb-2">Empathic Nature</h4>
-              <p className="text-foreground/70">
-                Your musical choices reflect high empathy and emotional awareness
-              </p>
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   );
