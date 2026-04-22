@@ -75,7 +75,7 @@ const ChatInterface = ({ onPlaylistGenerated, onReset }: ChatInterfaceProps) => 
     if (!message.trim()) return;
 
     // Add user message
-    const newMessages = [...messages, { role: "user", content: message }];
+    const newMessages: Message[] = [...messages, { role: "user" as const, content: message }];
     setMessages(newMessages);
     setUserInput('');
     setIsTyping(true);
