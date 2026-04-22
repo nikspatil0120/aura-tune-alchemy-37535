@@ -61,8 +61,8 @@ def _create_robust_session():
 def _get_oauth_params():
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-    # Force 127.0.0.1 redirect URI regardless of environment
-    redirect_uri = "http://127.0.0.1:8000/auth/callback"
+    # Use environment variable or default to 127.0.0.1
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/auth/callback")
     if not client_id or not client_secret:
         raise HTTPException(status_code=500, detail="Spotify credentials not configured")
     return client_id, client_secret, redirect_uri
@@ -89,12 +89,15 @@ def _make_jwt(payload: dict) -> str:
 
 @router.get("/login/spotify")
 async def login_spotify():
+    logger.info("🚀 Spotify login endpoint called")
+    
     client_id, _, redirect_uri = _get_oauth_params()
     
     # Debug logging to see what redirect_uri is being used
+    logger.info(f"🔍 Using client_id: {client_id}")
     logger.info(f"🔍 Using redirect_uri: {redirect_uri}")
     
-    scope = "user-read-email user-top-read playlist-modify-private playlist-modify-public"
+    scope = "user-read-email user-top-read playlist-modify-private playlist-modify-public user-library-read user-read-playback-state user-read-recently-played"
     params = {
         "client_id": client_id,
         "response_type": "code",
@@ -104,8 +107,10 @@ async def login_spotify():
     # Properly encode reserved characters (including '/') in redirect_uri
     query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
     auth_url = f"{SPOTIFY_AUTH_URL}?{query}"
-    logger.info(f"🔍 Redirecting to: {auth_url}")
-    return RedirectResponse(url=auth_url)
+    logger.info(f"🔍 Full auth URL: {auth_url}")
+    logger.info(f"� Rtedirect URI being sent: {redirect_uri}")
+    logger.info("🔄 Returning redirect response to Spotify")
+    return RedirectResponse(url=auth_url, status_code=302)
 
 
 @router.get("/callback")
@@ -118,9 +123,20 @@ async def spotify_callback(code: Optional[str] = None):
     client_id, client_secret, redirect_uri = _get_oauth_params()
     basic = _encode_basic(client_id, client_secret)
     
+    logger.info(f"Using client_id: {client_id}")
     logger.info(f"Using redirect_uri: {redirect_uri}")
+    logger.info(f"Using basic auth: {basic[:20]}...")
     
     session = _create_robust_session()
+    
+    # Debug the token request
+    token_data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri,
+    }
+    logger.info(f"Token request data: {token_data}")
+    
     try:
         token_resp = session.post(
             SPOTIFY_TOKEN_URL,
@@ -128,13 +144,12 @@ async def spotify_callback(code: Optional[str] = None):
                 "Authorization": f"Basic {basic}",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri,
-            },
+            data=token_data,
             timeout=30,
         )
+        logger.info(f"Token response status: {token_resp.status_code}")
+        logger.info(f"Token response headers: {dict(token_resp.headers)}")
+        logger.info(f"Token response body: {token_resp.text}")
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Network error during token exchange: {str(e)}")
     finally:
@@ -145,8 +160,11 @@ async def spotify_callback(code: Optional[str] = None):
             error_msg = f"Token exchange failed: {error_data.get('error', 'Unknown error')}"
             if 'error_description' in error_data:
                 error_msg += f" - {error_data['error_description']}"
+            logger.error(f"Spotify token exchange failed: {error_msg}")
+            logger.error(f"Response body: {token_resp.text}")
         except:
             error_msg = f"Token exchange failed: HTTP {token_resp.status_code}"
+            logger.error(f"Spotify token exchange failed: {error_msg}")
         raise HTTPException(status_code=token_resp.status_code, detail=error_msg)
     tokens = token_resp.json()
     access_token = tokens.get("access_token")

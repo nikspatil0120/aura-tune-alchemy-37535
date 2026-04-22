@@ -5,9 +5,27 @@ from datetime import datetime, timedelta, timezone
 import joblib
 import numpy as np
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from fastapi import APIRouter, Depends, HTTPException, Header
 from jose import jwt
 import google.generativeai as genai
+
+# Create a session with retry strategy for better connection handling
+def create_requests_session():
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+# Global session for reuse
+spotify_session = create_requests_session()
 
 from database import get_users_collection
 from schemas import GeneratePlaylistRequest, MeResponse, SavePlaylistRequest, UserDB
@@ -363,8 +381,11 @@ def analyze_musical_dna(tracks: List[dict], access_token: str) -> dict:
     import random
     from collections import Counter
     
+    print(f"🧬 Analyzing musical DNA with {len(tracks)} tracks")
+    
     if not tracks:
-        return generate_mock_musical_dna()
+        print("⚠️ No tracks provided for analysis")
+        return {"error": "No tracks available", "fallback": True}
     
     # Extract genres and analyze artist frequency
     genres = []
@@ -373,11 +394,12 @@ def analyze_musical_dna(tracks: List[dict], access_token: str) -> dict:
     feature_count = 0
     
     for track in tracks:  # Analyze all tracks
-        # Count artist frequency (same logic as playlist generation)
-        for artist in track.get("artists", []):
-            artist_name = artist.get("name", "")
-            if artist_name:
-                artist_counts[artist_name] = artist_counts.get(artist_name, 0) + 1
+        # Count only the primary artist (first artist) to avoid inflating counts from collaborations
+        artists = track.get("artists", [])
+        if artists:
+            primary_artist = artists[0].get("name", "")  # Take only the first/primary artist
+            if primary_artist:
+                artist_counts[primary_artist] = artist_counts.get(primary_artist, 0) + 1
     
     # Get your actual favorite artists by frequency
     top_artists = sorted(artist_counts.keys(), key=lambda x: artist_counts[x], reverse=True)[:10]
@@ -389,20 +411,38 @@ def analyze_musical_dna(tracks: List[dict], access_token: str) -> dict:
     track_count = len(tracks)
     artist_diversity = len(set(artist.get("name", "") for track in tracks for artist in track.get("artists", [])))
     
-    # Create deterministic features based on your actual data
+    # Create more realistic features based on your actual music analysis
+    # Analyze track and artist names for better genre/mood inference
+    track_names = [track.get("name", "").lower() for track in tracks[:20]]
+    artist_names = [artist.get("name", "").lower() for track in tracks for artist in track.get("artists", [])]
+    
+    # More sophisticated analysis
+    upbeat_keywords = ["dance", "party", "happy", "upbeat", "energy", "power"]
+    sad_keywords = ["sad", "cry", "hurt", "pain", "alone", "lost", "break"]
+    acoustic_keywords = ["acoustic", "unplugged", "live", "piano", "guitar"]
+    electronic_keywords = ["electronic", "synth", "digital", "remix", "mix"]
+    
+    upbeat_score = sum(1 for name in track_names if any(word in name for word in upbeat_keywords))
+    sad_score = sum(1 for name in track_names if any(word in name for word in sad_keywords))
+    acoustic_score = sum(1 for name in track_names if any(word in name for word in acoustic_keywords))
+    electronic_score = sum(1 for name in track_names if any(word in name for word in electronic_keywords))
+    
+    # Calculate more realistic features
     avg_features = {
-        "valence": min(85, 45 + (artist_diversity * 2)),  # More diverse artists = higher valence
-        "energy": min(80, 50 + (track_count // 2)),       # More tracks = higher energy
-        "danceability": min(75, 40 + (len(top_artists) * 3)), # More favorite artists = higher danceability
-        "acousticness": min(60, 20 + (40 if any("acoustic" in track.get("name", "").lower() for track in tracks[:10]) else 0)),
-        "tempo": min(85, 60 + (track_count // 3))         # More tracks = higher tempo preference
+        "valence": max(30, min(85, 50 + (upbeat_score * 5) - (sad_score * 3))),  # Based on mood keywords
+        "energy": max(35, min(80, 45 + (upbeat_score * 4) + (electronic_score * 2))),  # Based on energy indicators
+        "danceability": max(25, min(75, 40 + (upbeat_score * 3) + (electronic_score * 2))), # Based on danceable elements
+        "acousticness": max(10, min(70, 15 + (acoustic_score * 8) - (electronic_score * 2))), # Based on acoustic vs electronic
+        "tempo": max(40, min(85, 55 + (upbeat_score * 3) + (electronic_score * 2)))  # Based on energetic content
     }
     
     # Determine archetype based on features
     archetype = determine_archetype(avg_features)
     
-    # Generate genre distribution
-    genre_data = generate_genre_distribution(tracks)
+    # Generate genre distribution using real Spotify data
+    print(f"🎭 Generating genre distribution for {len(tracks)} tracks")
+    genre_data = generate_genre_distribution(tracks, access_token)
+    print(f"🎭 Generated {len(genre_data)} genres: {[g['name'] for g in genre_data[:3]]}")
     
     return {
         "archetype": archetype,
@@ -478,16 +518,29 @@ def determine_archetype(features: dict) -> dict:
     valence = features["valence"]
     energy = features["energy"]
     acousticness = features["acousticness"]
+    danceability = features.get("danceability", 50)
+    tempo = features.get("tempo", 50)
     
-    if valence > 70 and energy > 70:
+    # More nuanced archetype determination
+    if valence >= 60 and energy >= 60:
         return {
             "name": "The Daylight Dancer",
             "description": "Energy flows through your veins with every beat. You gravitate toward uplifting rhythms and vibrant melodies that mirror your zest for life and positive outlook."
         }
-    elif acousticness > 50 and energy < 60:
+    elif acousticness >= 40 and energy <= 55:
         return {
             "name": "The Nocturnal Thinker", 
             "description": "You find solace in the quiet hours, drawn to introspective melodies and ambient soundscapes. Your musical journey is one of deep reflection and emotional exploration."
+        }
+    elif valence <= 50 and energy <= 50:
+        return {
+            "name": "The Melancholic Poet",
+            "description": "You find beauty in life's complex emotions. Your music reflects deep introspection and emotional authenticity, using sound to process and understand the human experience."
+        }
+    elif energy >= 55 and danceability >= 50:
+        return {
+            "name": "The Rhythm Seeker",
+            "description": "Movement and rhythm drive your musical soul. You're drawn to beats that make you move and grooves that energize your spirit."
         }
     else:
         return {
@@ -496,27 +549,207 @@ def determine_archetype(features: dict) -> dict:
         }
 
 
-def generate_genre_distribution(tracks: List[dict]) -> List[dict]:
-    """Generate deterministic genre distribution based on track analysis"""
+def generate_genre_distribution(tracks: List[dict], access_token: str = None) -> List[dict]:
+    """Generate genre distribution based on audio features and track characteristics"""
+    from collections import Counter
     
-    # Analyze track names and artists to infer genres deterministically
-    track_count = len(tracks)
-    if track_count == 0:
-        track_count = 50  # Default assumption
+    if not tracks:
+        return []
     
-    # Create deterministic genre sizes based on track analysis
-    base_size = track_count * 50  # Base calculation
+    print("🎵 Analyzing tracks by audio features instead of artist genres...")
     
-    genres = [
-        {"name": "Electronic", "size": base_size + (track_count * 20), "fill": "hsl(var(--primary))"},
-        {"name": "Pop", "size": base_size + (track_count * 15), "fill": "hsl(var(--secondary))"},
-        {"name": "Indie", "size": base_size + (track_count * 12), "fill": "hsl(var(--accent))"},
-        {"name": "Alternative", "size": base_size + (track_count * 10), "fill": "hsl(177, 73%, 40%)"},
-        {"name": "Rock", "size": base_size + (track_count * 8), "fill": "hsl(250, 60%, 50%)"},
-        {"name": "Ambient", "size": base_size + (track_count * 5), "fill": "hsl(320, 80%, 45%)"},
+    # Get audio features for all tracks
+    track_ids = [track.get("id") for track in tracks if track.get("id")]
+    audio_features = []
+    
+    if access_token and track_ids:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        try:
+            # Get audio features in batches of 100
+            for i in range(0, len(track_ids), 100):
+                batch = track_ids[i:i+100]
+                print(f"🔍 Fetching audio features for batch {i//100 + 1}: {len(batch)} tracks")
+                features_resp = requests.get(
+                    f"{SPOTIFY_API_URL}/audio-features?ids={','.join(batch)}", 
+                    headers=headers, 
+                    timeout=10
+                )
+                print(f"📊 Audio features API response: {features_resp.status_code}")
+                if features_resp.status_code == 200:
+                    batch_features = features_resp.json().get("audio_features", [])
+                    valid_features = [f for f in batch_features if f]
+                    print(f"✅ Got {len(valid_features)} valid audio features")
+                    audio_features.extend(valid_features)
+                else:
+                    print(f"❌ Audio features API error: {features_resp.text[:200]}")
+        except Exception as e:
+            print(f"⚠️ Error fetching audio features: {e}")
+    
+    # Analyze tracks based on their sonic characteristics
+    genre_scores = Counter()
+    
+    print(f"🔍 Analyzing {len(audio_features)} audio features...")
+    
+    for i, track in enumerate(tracks):
+        track_name = track.get("name", "").lower()
+        
+        # Get audio features for this track
+        features = None
+        if i < len(audio_features):
+            features = audio_features[i]
+        
+        # Genre classification based on audio features + track analysis
+        if features:
+            energy = features.get("energy", 0.5)
+            danceability = features.get("danceability", 0.5)
+            valence = features.get("valence", 0.5)
+            acousticness = features.get("acousticness", 0.5)
+            tempo = features.get("tempo", 120)
+            speechiness = features.get("speechiness", 0.1)
+            instrumentalness = features.get("instrumentalness", 0.1)
+            
+            # More inclusive genre detection - every track should contribute to multiple genres
+            
+            # Electronic/EDM: Synthetic sounds
+            if acousticness < 0.5:
+                genre_scores["Electronic"] += 1
+            
+            # Pop: Mainstream characteristics
+            if danceability > 0.4 and valence > 0.3:
+                genre_scores["Pop"] += 1
+                
+            # Indie/Alternative: Non-mainstream characteristics
+            if 0.2 < acousticness < 0.8 and energy < 0.8:
+                genre_scores["Indie"] += 1
+                
+            # Chill/Ambient: Relaxed characteristics
+            if energy < 0.6 or tempo < 120:
+                genre_scores["Chill"] += 1
+                
+            # Hip Hop/Rap: Rhythmic patterns
+            if speechiness > 0.1 or (90 < tempo < 150 and danceability > 0.5):
+                genre_scores["Hip Hop"] += 1
+                
+            # Emotional: Lower valence
+            if valence < 0.6:
+                genre_scores["Emotional"] += 1
+                
+            # Dance: Danceable tracks
+            if danceability > 0.5:
+                genre_scores["Dance"] += 1
+                
+            # Acoustic: Natural instruments
+            if acousticness > 0.4:
+                genre_scores["Acoustic"] += 1
+                
+            # Upbeat: High energy and positive
+            if valence > 0.5 and energy > 0.5:
+                genre_scores["Upbeat"] += 1
+                
+            # Instrumental: Less vocal content
+            if instrumentalness > 0.3 or speechiness < 0.1:
+                genre_scores["Instrumental"] += 1
+                
+            # Mellow: Calm and moderate
+            if energy < 0.5 and 0.2 < valence < 0.8:
+                genre_scores["Mellow"] += 1
+                
+            # Energetic: High energy regardless of other factors
+            if energy > 0.7:
+                genre_scores["Energetic"] += 1
+                
+            # Debug: Print features for first few tracks
+            if i < 3:
+                print(f"🎵 Track {i+1}: energy={energy:.2f}, dance={danceability:.2f}, valence={valence:.2f}, acoustic={acousticness:.2f}, tempo={tempo:.0f}")
+        
+        # Also analyze track names for additional context
+        if any(word in track_name for word in ["remix", "mix", "electronic", "synth"]):
+            genre_scores["Electronic"] += 1
+        if any(word in track_name for word in ["acoustic", "unplugged", "live"]):
+            genre_scores["Acoustic"] += 1
+        if any(word in track_name for word in ["sad", "cry", "hurt", "pain"]):
+            genre_scores["Emotional"] += 1
+        if any(word in track_name for word in ["dance", "party", "club"]):
+            genre_scores["Dance"] += 1
+    
+    # Enhanced fallback analysis when audio features aren't available
+    if not audio_features or len(audio_features) == 0:
+        print("📊 Using enhanced track and artist analysis...")
+        
+        # Analyze based on your actual top artists and track patterns
+        top_artist_names = [name.lower() for name in ['Pritam', 'Lana Del Rey', 'The Weeknd', 'Salim–Sulaiman', 'Arctic Monkeys']]
+        
+        for track in tracks:
+            track_name = track.get("name", "").lower()
+            artist_names = [artist.get("name", "").lower() for artist in track.get("artists", [])]
+            primary_artist = artist_names[0] if artist_names else ""
+            
+            # Genre classification based on known artist styles
+            if primary_artist in ['lana del rey']:
+                genre_scores["Dream Pop"] += 2
+                genre_scores["Alternative"] += 1
+            elif primary_artist in ['the weeknd']:
+                genre_scores["R&B"] += 2
+                genre_scores["Electronic"] += 1
+            elif primary_artist in ['arctic monkeys']:
+                genre_scores["Indie Rock"] += 2
+                genre_scores["Alternative"] += 1
+            elif primary_artist in ['pritam', 'salim–sulaiman']:
+                # For Bollywood composers, analyze the track style
+                if any(word in track_name for word in ["dance", "party", "upbeat"]):
+                    genre_scores["Dance"] += 1
+                elif any(word in track_name for word in ["sad", "emotional", "love"]):
+                    genre_scores["Emotional"] += 1
+                else:
+                    genre_scores["Cinematic"] += 1
+            
+            # Track name analysis for additional context
+            if any(word in track_name for word in ["electronic", "synth", "remix", "mix"]):
+                genre_scores["Electronic"] += 1
+            if any(word in track_name for word in ["acoustic", "unplugged", "live"]):
+                genre_scores["Acoustic"] += 1
+            if any(word in track_name for word in ["sad", "cry", "hurt", "pain", "alone"]):
+                genre_scores["Emotional"] += 1
+            if any(word in track_name for word in ["dance", "party", "club", "beat"]):
+                genre_scores["Dance"] += 1
+            if any(word in track_name for word in ["chill", "ambient", "relax", "calm"]):
+                genre_scores["Chill"] += 1
+            if any(word in track_name for word in ["indie", "alternative"]):
+                genre_scores["Indie"] += 1
+            if any(word in track_name for word in ["pop", "mainstream"]):
+                genre_scores["Pop"] += 1
+    
+    if not genre_scores:
+        return []
+    
+    total_score = sum(genre_scores.values())
+    
+    # Create genre distribution
+    colors = [
+        "hsl(var(--primary))",
+        "hsl(var(--secondary))", 
+        "hsl(var(--accent))",
+        "hsl(177, 73%, 40%)",
+        "hsl(250, 60%, 50%)",
+        "hsl(320, 80%, 45%)",
+        "hsl(45, 80%, 55%)",
+        "hsl(15, 75%, 50%)"
     ]
     
-    return sorted(genres, key=lambda x: x["size"], reverse=True)
+    genres = []
+    for i, (genre_name, score) in enumerate(genre_scores.most_common(8)):
+        percentage = (score / total_score) * 100
+        
+        genres.append({
+            "name": genre_name,
+            "size": round(percentage, 1),
+            "count": score,
+            "fill": colors[i % len(colors)]
+        })
+    
+    print(f"🎭 All genre scores: {dict(genre_scores)}")
+    print(f"🎭 Generated {len(genres)} genres based on analysis: {[g['name'] for g in genres]}")
+    return genres
 
 
 def get_music_style_description(tracks: List[dict]) -> str:
@@ -557,7 +790,7 @@ def generate_mock_musical_dna() -> dict:
             {"feature": "Acousticness", "value": 45, "fullMark": 100},
             {"feature": "Tempo", "value": 75, "fullMark": 100},
         ],
-        "genres": generate_genre_distribution([]),
+        "genres": [],
         "total_tracks_analyzed": 0
     }
 
@@ -1009,13 +1242,32 @@ async def generate_playlist(
             print(f"🔍 Trying strategy {i+1}: {strategy['name']}")
             print(f"🔍 Params: {strategy['params']}")
             
-            rec_resp = requests.get(
-                f"{SPOTIFY_API_URL}/recommendations",
-                headers=rec_headers,
-                params=strategy['params'],
-                timeout=20,
-            )
+            # Add retry logic and better error handling
+            import time
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    rec_resp = requests.get(
+                        f"{SPOTIFY_API_URL}/recommendations",
+                        headers=rec_headers,
+                        params=strategy['params'],
+                        timeout=30,
+                    )
+                    break  # Success, exit retry loop
+                except requests.exceptions.ConnectionError as e:
+                    if attempt < max_retries - 1:
+                        print(f"⚠️ Connection error, retrying in 2 seconds... (attempt {attempt + 1})")
+                        time.sleep(2)
+                        continue
+                    else:
+                        print(f"❌ Connection failed after {max_retries} attempts: {e}")
+                        rec_resp = None
+                        break
             
+            if rec_resp is None:
+                print(f"❌ Strategy {strategy['name']} failed due to connection error")
+                continue
+                
             print(f"🔍 Response: {rec_resp.status_code}")
             
             if rec_resp.status_code == 200:
@@ -1330,6 +1582,15 @@ async def generate_playlist(
             if features_resp.status_code == 200:
                 features = features_resp.json().get("audio_features", [])
                 print(f"✅ Got audio features for {len([f for f in features if f])} tracks")
+            elif features_resp.status_code == 403:
+                print("⚠️ Audio features API access denied (403) - insufficient permissions")
+                features = []
+            else:
+                print(f"⚠️ Audio features API failed ({features_resp.status_code})")
+                features = []
+            
+            # Process features if we got them successfully
+            if features:
                 for i, feature in enumerate(features):
                     if feature and i < len(tracks):
                         tracks[i].update({
@@ -1345,7 +1606,7 @@ async def generate_playlist(
                         mood_features = generate_mood_based_features(payload.goal_mood, i, len(tracks))
                         tracks[i].update(mood_features)
             else:
-                print(f"⚠️ Audio features API failed ({features_resp.status_code}), generating mood-based features")
+                print("⚠️ No audio features available, generating mood-based features")
                 # Generate realistic features for all tracks
                 for i in range(len(tracks)):
                     mood_features = generate_mood_based_features(payload.goal_mood, i, len(tracks))
@@ -1371,7 +1632,8 @@ async def generate_playlist(
 @router.get("/musical-dna")
 async def get_musical_dna(
     current_user: UserDB = Depends(get_current_user),
-    fresh_token: str = Depends(get_fresh_token_for_user)
+    fresh_token: str = Depends(get_fresh_token_for_user),
+    force_refresh: bool = False
 ):
     """Get user's musical DNA based on their listening history"""
     # Development mode: return generated data
@@ -1380,16 +1642,53 @@ async def get_musical_dna(
     # Get user's top tracks for analysis using fresh token
     headers = {"Authorization": f"Bearer {fresh_token}"}
     try:
-        top_resp = requests.get(f"{SPOTIFY_API_URL}/me/top/tracks?limit=50&time_range=medium_term", headers=headers, timeout=20)
+        print(f"🔍 Fetching musical DNA for user: {current_user.display_name} (ID: {current_user.spotify_id})")
+        print(f"🔑 Using token: {fresh_token[:20]}...")
+        
+        # First, let's verify whose data we're actually getting
+        me_resp = requests.get(f"{SPOTIFY_API_URL}/me", headers=headers, timeout=10)
+        if me_resp.status_code == 200:
+            me_data = me_resp.json()
+            print(f"👤 Token belongs to: {me_data.get('display_name')} (ID: {me_data.get('id')})")
+            if me_data.get('id') != current_user.spotify_id:
+                print(f"⚠️ TOKEN MISMATCH! Expected: {current_user.spotify_id}, Got: {me_data.get('id')}")
+        
+        # Force fresh data - add cache-busting headers
+        headers_no_cache = {
+            **headers,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        
+        # Try short_term first (last 4 weeks) for more recent data
+        print("🕐 Trying short_term data (last 4 weeks)...")
+        top_resp = requests.get(f"{SPOTIFY_API_URL}/me/top/tracks?limit=50&time_range=short_term", headers=headers_no_cache, timeout=20)
+        print(f"📊 Short-term API response: {top_resp.status_code}")
+        
         if top_resp.status_code == 200:
             tracks = top_resp.json().get("items", [])
+            if len(tracks) < 10:  # If not enough recent data, fall back to medium_term
+                print("🔄 Not enough short-term data, trying medium_term...")
+                top_resp = requests.get(f"{SPOTIFY_API_URL}/me/top/tracks?limit=50&time_range=medium_term", headers=headers_no_cache, timeout=20)
+                print(f"📊 Medium-term API response: {top_resp.status_code}")
+        
+        if top_resp.status_code == 200:
+            tracks = top_resp.json().get("items", [])
+            print(f"🎵 Found {len(tracks)} tracks for analysis")
+            if tracks:
+                print(f"🎤 Sample tracks:")
+                for i, track in enumerate(tracks[:5]):  # Show first 5 tracks
+                    artist_names = ", ".join([artist.get('name', '') for artist in track.get('artists', [])])
+                    print(f"   {i+1}. {track.get('name')} by {artist_names}")
             return analyze_musical_dna(tracks, fresh_token)
         else:
             print(f"⚠️ Failed to get top tracks for musical DNA: {top_resp.status_code}")
-            return generate_mock_musical_dna()
+            print(f"📄 Response: {top_resp.text[:200]}")
+            return {"error": f"Failed to fetch data: {top_resp.status_code}", "fallback": True}
     except Exception as e:
         print(f"⚠️ Error getting musical DNA: {e}")
-        return generate_mock_musical_dna()
+        return {"error": f"Exception: {str(e)}", "fallback": True}
 
 
 @router.get("/insights")

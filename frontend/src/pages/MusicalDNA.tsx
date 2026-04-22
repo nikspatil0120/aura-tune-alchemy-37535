@@ -282,7 +282,7 @@ const MusicalDNA = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-xl font-bold gradient-text">
-                        {Math.round((genre.size / 13000) * 100)}%
+                        {Math.round((genre.size / dnaData.genres.reduce((sum, g) => sum + g.size, 0)) * 100)}%
                       </div>
                       <div className="text-sm text-foreground/60">of your taste</div>
                     </div>
@@ -291,7 +291,7 @@ const MusicalDNA = () => {
                     <div 
                       className="progress-fill" 
                       style={{ 
-                        width: `${(genre.size / 13000) * 100}%`,
+                        width: `${(genre.size / dnaData.genres.reduce((sum, g) => sum + g.size, 0)) * 100}%`,
                         backgroundColor: genre.fill
                       }}
                     ></div>
